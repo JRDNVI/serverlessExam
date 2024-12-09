@@ -8,6 +8,8 @@ import {
 
 const ddbDocClient = createDocumentClient();
 
+//Part A
+
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   try {
     console.log("Event: ", JSON.stringify(event));
