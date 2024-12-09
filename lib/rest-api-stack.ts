@@ -99,6 +99,38 @@ export class RestAPIStack extends cdk.Stack {
       }
     );
 
+    const getCrewFn = new lambdanode.NodejsFunction(
+      this, 
+      "GetCrewFn", 
+      {
+        architecture: lambda.Architecture.ARM_64,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        entry: `${__dirname}/../lambdas/getCrew.ts`,
+        timeout: cdk.Duration.seconds(10),
+        memorySize: 128,
+        environment: {
+          TABLE_NAME_CREW: movieCastsTable.tableName,
+          REGION: "eu-west-1",
+        },
+      }
+    )
+
+    const getAllMoviesFn = new lambdanode.NodejsFunction(
+      this,
+      "getAllMoviesFn",
+      {
+        architecture: lambda.Architecture.ARM_64,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        entry: `${__dirname}/../lambdas/getAllMovies.ts`,
+        timeout: cdk.Duration.seconds(10),
+        memorySize: 128,
+        environment: {
+          TABLE_NAME: moviesTable.tableName,
+          REGION: "eu-west-1",
+        },
+      }
+    )
+
     new custom.AwsCustomResource(this, "moviesddbInitData", {
       onCreate: {
         service: "DynamoDB",
@@ -142,6 +174,26 @@ export class RestAPIStack extends cdk.Stack {
 
     const movieEndpoint = moviesEndpoint.addResource("{movieId}");
 
+    const crewEndpoint = api.root.addResource("crew");
+    const crewRoleEndpoint = crewEndpoint.addResource("{role}");
+    const crewMovieEndpoint = crewRoleEndpoint.addResource("movies");
+    const crewMovieIdEndpoint = crewMovieEndpoint.addResource("{movieId}");
+
+    crewMovieIdEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getCrewFn, { proxy: true })
+    );
+
+    crewEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getCrewFn, { proxy: true })
+    )
+
+    moviesEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getAllMoviesFn, { proxy: true })
+    )
+
     movieEndpoint.addMethod(
       "GET",
       new apig.LambdaIntegration(getMovieByIdFn, { proxy: true })
@@ -161,7 +213,10 @@ export class RestAPIStack extends cdk.Stack {
     // Permissions;
     moviesTable.grantReadData(getMovieByIdFn);
     moviesTable.grantReadWriteData(deleteMovieByIdFn);
+    moviesTable.grantReadData(getAllMoviesFn)
+    moviesTable.grantReadData(getCrewFn)
     movieCastsTable.grantReadData(getMovieCastMembersFn);
     movieCastsTable.grantReadData(getMovieByIdFn);
+    movieCastsTable.grantReadData(getCrewFn)
   }
 }
